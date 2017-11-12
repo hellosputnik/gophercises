@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 type Problem struct {
@@ -14,15 +15,25 @@ type Problem struct {
 }
 
 type Quiz struct {
-	score            int
-	numberOfProblems int
+	problems []Problem
+	score    int
+}
+
+type Settings struct {
+	filename  *string
+	timeLimit *int
 }
 
 func main() {
-	filename := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
+	quiz := Quiz{}
+	settings := Settings{}
+
+	settings.filename = flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
+	settings.timeLimit = flag.Int("limit", 30, "the time limit for the quiz in seconds")
+
 	flag.Parse()
 
-	file, err := os.Open(*filename)
+	file, err := os.Open(*settings.filename)
 
 	if err != nil {
 		panic(err)
@@ -32,14 +43,23 @@ func main() {
 
 	fin := bufio.NewScanner(file)
 
-	quiz := Quiz{}
 	for fin.Scan() {
-		quiz.numberOfProblems++
-
 		line := strings.Split(fin.Text(), ",")
 		problem := Problem{question: line[0], answer: line[1]}
 
-		fmt.Printf("Problem #%d: %s = ", quiz.numberOfProblems, problem.question)
+		quiz.problems = append(quiz.problems, problem)
+	}
+
+	timer := time.NewTimer(time.Second * time.Duration(*settings.timeLimit))
+	defer timer.Stop()
+
+	go func() {
+		<-timer.C
+		fmt.Printf("\nYou scored %d out of %d.", quiz.score, len(quiz.problems))
+	}()
+
+	for i, problem := range quiz.problems {
+		fmt.Printf("Problem #%d: %s = ", (i + 1), problem.question)
 
 		var input string
 		fmt.Scan(&input)
@@ -48,6 +68,5 @@ func main() {
 			quiz.score++
 		}
 	}
-
-	fmt.Printf("You scored %d out of %d.", quiz.score, quiz.numberOfProblems)
+	fmt.Printf("You scored %d out of %d.", quiz.score, len(quiz.problems))
 }
